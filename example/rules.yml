@@ -1,0 +1,27 @@
+groups:
+  - name: blackbox
+    rules:
+      - record: probe_success:tls:eq_tcp
+        expr: probe_success{job="blackbox:tls"} == on (instance) probe_success{job="blackbox:tcp"}
+
+      - record: probe_success:tls:neq_tcp
+        expr: probe_success{job="blackbox:tls"} != on (instance) probe_success{job="blackbox:tcp"}
+
+      - record: probe_ssl_last_chain_expiry_timestamp_seconds:sub_time
+        expr: probe_ssl_last_chain_expiry_timestamp_seconds - time()
+
+      - alert: TLSNotAvailable
+        expr: probe_success:tls:neq_tcp == 0
+
+      - alert: TLSLastChainExpiresNextWeek
+        expr: probe_ssl_last_chain_expiry_timestamp_seconds:sub_time < 86400 * 7
+        
+      - alert: TLSLastChainExpiresTomorrow
+        expr: probe_ssl_last_chain_expiry_timestamp_seconds:sub_time < 86400 * 1
+
+      - alert: TLSVersionDeprecated
+        expr: probe_tls_version_info{version=~"TLS (1.0|1.1)"}
+
+      - alert: TLSVersionUnknown
+        expr: probe_tls_version_info{version="unknown"}
+

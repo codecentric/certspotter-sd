@@ -1,0 +1,13 @@
+global:
+  polling_interval: 1h
+  rate_limit: 1.25
+  token: ""
+
+domains:
+  - domain: example.com
+    include_subdomains: true
+  
+files:
+  - file: /var/lib/certspotter-sd/targets.json
+    match_re:
+      dns_names: .*example.*
