@@ -1,4 +1,4 @@
-package export
+package discovery
 
 import (
 	"reflect"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/codecentric/certspotter-sd/internal/certspotter"
+	"github.com/codecentric/certspotter-sd/internal/discovery/target"
 )
 
 func mustParseTime(str string) time.Time {
@@ -19,7 +20,7 @@ func mustParseTime(str string) time.Time {
 func TestGetTargets(t *testing.T) {
 	table := map[string]struct {
 		issuances []*certspotter.Issuance
-		want      []*Target
+		want      []*target.Target
 	}{"valid issuances": {
 		[]*certspotter.Issuance{
 			&certspotter.Issuance{
@@ -35,12 +36,12 @@ func TestGetTargets(t *testing.T) {
 				Certificate: &certspotter.Certificate{Type: "cert"},
 			},
 		},
-		[]*Target{
-			&Target{Labels: map[string]string{
+		[]*target.Target{
+			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
 			}},
-			&Target{Labels: map[string]string{
+			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494877",
 				"__meta_certspotter_cert_sha256": "",
 			}},
@@ -60,8 +61,8 @@ func TestGetTargets(t *testing.T) {
 				Certificate: &certspotter.Certificate{Type: "precert"},
 			},
 		},
-		[]*Target{
-			&Target{Labels: map[string]string{
+		[]*target.Target{
+			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
 			}},
@@ -87,8 +88,8 @@ func TestGetTargets(t *testing.T) {
 				Certificate: &certspotter.Certificate{Type: "cert"},
 			},
 		},
-		[]*Target{
-			&Target{Labels: map[string]string{
+		[]*target.Target{
+			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
 			}},

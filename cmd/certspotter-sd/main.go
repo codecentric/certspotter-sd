@@ -13,7 +13,6 @@ import (
 
 	"github.com/codecentric/certspotter-sd/internal/config"
 	"github.com/codecentric/certspotter-sd/internal/discovery"
-	"github.com/codecentric/certspotter-sd/internal/export"
 	"github.com/codecentric/certspotter-sd/internal/version"
 )
 
@@ -34,13 +33,9 @@ func main() {
 		sugar.Fatalw("can't read configuration", "err", err)
 	}
 
-	dc := discovery.NewDiscovery(
+	discovery := discovery.NewDiscovery(
 		logger.With(zap.String("component", "discovery")),
-		&cfg.GlobalConfig,
-	)
-	exporter := export.NewExporter(
-		logger.With(zap.String("component", "exporter")),
-		&cfg.GlobalConfig,
+		cfg,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,10 +44,7 @@ func main() {
 		cancel()
 		os.Exit(0)
 	})
-
-	sugar.Info("starting service discovery")
-	ch := dc.Discover(ctx, cfg.DomainConfigs)
-	exporter.Export(ctx, ch, cfg.FileConfigs)
+	discovery.Discover(ctx)
 }
 
 func argsparse() *arguments {

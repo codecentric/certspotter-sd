@@ -2,39 +2,51 @@ package discovery
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/codecentric/certspotter-sd/internal/certspotter"
 	"github.com/codecentric/certspotter-sd/internal/config"
 	"github.com/codecentric/certspotter-sd/internal/discovery/client"
+	"github.com/codecentric/certspotter-sd/internal/discovery/target"
 	"github.com/codecentric/certspotter-sd/internal/version"
 )
 
-// Discovery is for subscribing to issuances for domains.
+// Discovery is used for exporting issuances as targets to file.
 type Discovery struct {
-	client *client.Client
-	logger *zap.SugaredLogger
+	client    *client.Client
+	cfg       *config.Config
+	issuances []*certspotter.Issuance
+	logger    *zap.SugaredLogger
+	mtx       sync.RWMutex
+	send      chan struct{}
 }
 
-// NewDiscovery returns a new domain subscriber.
-func NewDiscovery(logger *zap.Logger, cfg *config.GlobalConfig) *Discovery {
+// NewDiscovery returns a new discovery form global configuration.
+func NewDiscovery(logger *zap.Logger, cfg *config.Config) *Discovery {
 	return &Discovery{
+		cfg: cfg,
 		client: client.NewClient(logger, &client.Config{
-			Interval:  cfg.Interval,
-			RateLimit: cfg.RateLimit,
-			Token:     cfg.Token,
+			Interval:  cfg.GlobalConfig.Interval,
+			RateLimit: cfg.GlobalConfig.RateLimit,
+			Token:     cfg.GlobalConfig.Token,
 			UserAgent: version.UserAgent(),
 		}),
 		logger: logger.Sugar(),
 	}
 }
 
-// Discover subscribes to domains from configurations and sends all issuances to a channel on updates.
-func (d *Discovery) Discover(ctx context.Context, cfgs []*config.DomainConfig) <-chan []*certspotter.Issuance {
+// Discover discovers prometheus targets from certificate issuances and writes
+// all valif targets to files.
+func (d *Discovery) Discover(ctx context.Context) {
+	d.logger.Infow("starting discovering issuances")
+
 	var chans []<-chan []*certspotter.Issuance
-	for _, cfg := range cfgs {
+	for _, cfg := range d.cfg.DomainConfigs {
 		d.logger.Infow("subscribing to issuances", "domain", cfg.Domain)
 		in := d.client.SubIssuances(ctx, &certspotter.GetIssuancesOptions{
 			Domain:            cfg.Domain,
@@ -44,62 +56,92 @@ func (d *Discovery) Discover(ctx context.Context, cfgs []*config.DomainConfig) <
 		chans = append(chans, in)
 	}
 
-	ch := d.Merge(ctx, chans...)
-	return d.Aggregate(ctx, ch)
-}
+	d.send = make(chan struct{})
+	defer close(d.send)
 
-// Aggregate aggregates issuances recived on in channel and outputs all previously recived issuances to a channel on updates
-func (d *Discovery) Aggregate(ctx context.Context, in <-chan []*certspotter.Issuance) <-chan []*certspotter.Issuance {
-	var all []*certspotter.Issuance
-	var send chan []*certspotter.Issuance
-
-	issuances := make(map[string]*certspotter.Issuance)
-	out := make(chan []*certspotter.Issuance)
-	go func() {
-		defer close(out)
-		for {
-			select {
-			case recieved := <-in:
-				for _, issuance := range recieved {
-					issuances[issuance.ID] = issuance
-				}
-
-				all = []*certspotter.Issuance{}
-				for _, issuance := range issuances {
-					all = append(all, issuance)
-				}
-				send = out
-			case send <- all:
-				send = nil
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	return out
-}
-
-// Merge merges mulptiple issuance channels into one
-func (d *Discovery) Merge(ctx context.Context, cs ...<-chan []*certspotter.Issuance) <-chan []*certspotter.Issuance {
-	var wg sync.WaitGroup
-	out := make(chan []*certspotter.Issuance)
-
-	wg.Add(len(cs))
-	for _, in := range cs {
-		go func(in <-chan []*certspotter.Issuance) {
-			defer wg.Done()
-			for issuances := range in {
-				select {
-				case out <- issuances:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}(in)
+	for _, ch := range chans {
+		go d.collect(ctx, ch)
 	}
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
+	d.export(ctx)
+}
+
+// collect collects issuances from channel to internal structure.
+func (d *Discovery) collect(ctx context.Context, ch <-chan []*certspotter.Issuance) {
+	for {
+		select {
+		case issuances := <-ch:
+			d.mtx.RLock()
+			d.issuances = append(d.issuances, issuances...)
+			d.mtx.RUnlock()
+			d.send <- struct{}{}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// export writes issuances as targets to files.
+func (d *Discovery) export(ctx context.Context) {
+	for {
+		select {
+		case <-d.send:
+			tgs := GetTargets(d.issuances)
+			for filename, tgs := range GetFileTargets(tgs, d.cfg.FileConfigs) {
+				if err := Write(filename, tgs); err != nil {
+					d.logger.Errorw("writing targets to file", "err", err)
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// GetTargets returns a set of valid targtes from issuances
+func GetTargets(issuances []*certspotter.Issuance) []*target.Target {
+	now := time.Now()
+	var tgs []*target.Target
+	for _, issuance := range issuances {
+		if issuance.Certificate != nil && issuance.Certificate.Type == "precert" {
+			continue
+		}
+		if now.After(issuance.NotAfter) || now.Before(issuance.NotBefore) {
+			continue
+		}
+		tgs = append(tgs, target.NewTarget(issuance))
+	}
+	return tgs
+}
+
+// GetFileTargets returns a map of targets per matching file
+func GetFileTargets(tgs []*target.Target, cfgs []*config.FileConfig) map[string][]*target.Target {
+	files := make(map[string][]*target.Target)
+	for _, cfg := range cfgs {
+		files[cfg.File] = []*target.Target{}
+	}
+
+	for _, tg := range tgs {
+		for _, cfg := range cfgs {
+			if !tg.Matches(cfg.MatchRE) {
+				continue
+			}
+			tg.AddLabels(cfg.Labels)
+			files[cfg.File] = append(files[cfg.File], tg)
+		}
+	}
+	return files
+}
+
+// Write writes targets as json array to filename
+func Write(filename string, tgs []*target.Target) error {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if tgs == nil {
+		tgs = []*target.Target{}
+	}
+	return json.NewEncoder(file).Encode(tgs)
 }
