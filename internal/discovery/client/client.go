@@ -82,10 +82,16 @@ func (c *Client) SubIssuances(ctx context.Context, opts *certspotter.GetIssuance
 			select {
 			case <-time.After(delay):
 				issuances, resp, err := c.GetIssuances(ctx, opts)
-				c.logger.Debugw("getting issuances", "issuances", len(issuances))
 				if err != nil {
-					c.logger.Errorw("getting issuances", "err", err)
+					c.logger.Errorw("getting issuances for domain",
+						"domain", opts.Domain,
+						"err", err,
+					)
 				}
+				c.logger.Debugw("got issuances for domain",
+					"domain", opts.Domain,
+					"issuances", len(issuances),
+				)
 
 				delay, ok = GetRetryAfter(resp)
 				if !ok || delay < c.interval {
