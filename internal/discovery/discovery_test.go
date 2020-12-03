@@ -33,17 +33,19 @@ func TestGetTargets(t *testing.T) {
 				ID:          "648494877",
 				NotBefore:   mustParseTime("2000-01-01T00:00:00-00:00"),
 				NotAfter:    mustParseTime("2100-01-01T00:00:00-00:00"),
-				Certificate: &certspotter.Certificate{Type: "cert"},
+				Certificate: &certspotter.Certificate{Type: "precert"},
 			},
 		},
 		[]*target.Target{
 			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
+				"__meta_certspotter_cert_type":   "cert",
 			}},
 			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494877",
 				"__meta_certspotter_cert_sha256": "",
+				"__meta_certspotter_cert_type":   "precert",
 			}},
 		},
 	}, "precert issuances": {
@@ -65,6 +67,12 @@ func TestGetTargets(t *testing.T) {
 			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
+				"__meta_certspotter_cert_type":   "cert",
+			}},
+			&target.Target{Labels: map[string]string{
+				"__meta_certspotter_id":          "648494877",
+				"__meta_certspotter_cert_sha256": "",
+				"__meta_certspotter_cert_type":   "precert",
 			}},
 		},
 	}, "outdated issuances": {
@@ -92,6 +100,7 @@ func TestGetTargets(t *testing.T) {
 			&target.Target{Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "",
+				"__meta_certspotter_cert_type":   "cert",
 			}},
 		},
 	}}

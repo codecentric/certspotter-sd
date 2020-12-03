@@ -17,17 +17,19 @@ func TestNewTarget(t *testing.T) {
 		&Target{Labels: map[string]string{
 			"__meta_certspotter_id": "",
 		}},
-	}, "only cert sha256": {
+	}, "only cert": {
 		&certspotter.Issuance{
 			ID: "648494876",
 			Certificate: &certspotter.Certificate{
 				SHA256: "9250711c54de546f4370e0c3d3a3ec45bc96092a25a4a71a1afa396af7047eb8",
+				Type:   "precert",
 			},
 		},
 		&Target{
 			Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "9250711c54de546f4370e0c3d3a3ec45bc96092a25a4a71a1afa396af7047eb8",
+				"__meta_certspotter_cert_type":   "precert",
 			},
 		},
 	}, "only dns names": {
@@ -60,6 +62,7 @@ func TestNewTarget(t *testing.T) {
 			ID: "648494876",
 			Certificate: &certspotter.Certificate{
 				SHA256: "9250711c54de546f4370e0c3d3a3ec45bc96092a25a4a71a1afa396af7047eb8",
+				Type:   "precert",
 			},
 			DNSNames: []string{"example.com", "example2.com"},
 			Issuer: &certspotter.Issuer{
@@ -70,6 +73,7 @@ func TestNewTarget(t *testing.T) {
 			Labels: map[string]string{
 				"__meta_certspotter_id":          "648494876",
 				"__meta_certspotter_cert_sha256": "9250711c54de546f4370e0c3d3a3ec45bc96092a25a4a71a1afa396af7047eb8",
+				"__meta_certspotter_cert_type":   "precert",
 				"__meta_certspotter_dns_names":   "example.com;example2.com",
 				"__meta_certspotter_issuer_name": "C=US, O=DigiCert Inc, CN=DigiCert SHA2 Secure Server CA",
 			},

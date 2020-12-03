@@ -21,6 +21,7 @@ func NewTarget(issuance *certspotter.Issuance) *Target {
 	labels["__meta_certspotter_id"] = issuance.ID
 	if issuance.Certificate != nil {
 		labels["__meta_certspotter_cert_sha256"] = issuance.Certificate.SHA256
+		labels["__meta_certspotter_cert_type"] = issuance.Certificate.Type
 	}
 	if len(issuance.DNSNames) != 0 {
 		labels["__meta_certspotter_dns_names"] = strings.Join(issuance.DNSNames, ";")

@@ -113,9 +113,6 @@ func GetTargets(issuances []*certspotter.Issuance) []*target.Target {
 	now := time.Now()
 	var tgs []*target.Target
 	for _, issuance := range issuances {
-		if issuance.Certificate != nil && issuance.Certificate.Type == "precert" {
-			continue
-		}
 		if now.After(issuance.NotAfter) || now.Before(issuance.NotBefore) {
 			continue
 		}
