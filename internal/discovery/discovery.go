@@ -101,8 +101,13 @@ func (d *Discovery) collect(ctx context.Context, ch <-chan []*certspotter.Issuan
 
 // export writes issuances as targets to files.
 func (d *Discovery) export(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute * 5)
+	defer ticker.Stop()
+
 	for {
 		select {
+		case <-ticker.C:
+			d.send <- struct{}{}
 		case <-d.send:
 			tgs := GetTargets(d.issuances)
 			d.logger.Debugw("got targets from issuances",
