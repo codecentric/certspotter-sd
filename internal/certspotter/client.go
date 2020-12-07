@@ -88,12 +88,12 @@ func (c *Client) Do(ctx context.Context, val interface{}, opts *DoOptions) (*htt
 
 	resp, err := c.client.Do(req.WithContext(ctx))
 	if err != nil {
-		return nil, err
+		return resp, err
 	}
 	defer resp.Body.Close()
 
 	if err := CheckResponse(resp); err != nil {
-		return nil, err
+		return resp, err
 	}
 
 	return resp, json.NewDecoder(resp.Body).Decode(&val)

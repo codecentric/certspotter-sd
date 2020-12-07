@@ -2,14 +2,34 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
 	"github.com/codecentric/certspotter-sd/internal/certspotter"
+)
+
+var (
+	apiRequestsMetric = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "certspotter_api_requests_total",
+			Help: "The total number of api requests",
+		},
+		[]string{"endpoint", "method", "status"},
+	)
+	issuancesDiscoveredMetric = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "certspotter_issuances_discovered_total",
+			Help: "The total number of issuances discovered",
+		},
+		[]string{"domain"},
+	)
 )
 
 // Client is a thin wrapper around certspotter.Client.
@@ -58,6 +78,12 @@ func (c *Client) GetIssuances(ctx context.Context, opts *certspotter.GetIssuance
 		c.limiter.Wait(ctx)
 
 		issuances, resp, err := c.client.GetIssuances(ctx, opts)
+		if resp != nil {
+			apiRequestsMetric.WithLabelValues(
+				"/v1/issuances", "GET", fmt.Sprint(resp.StatusCode),
+			).Inc()
+		}
+
 		if err != nil {
 			return nil, nil, err
 		}
@@ -82,6 +108,10 @@ func (c *Client) SubIssuances(ctx context.Context, opts *certspotter.GetIssuance
 			select {
 			case <-time.After(delay):
 				issuances, resp, err := c.GetIssuances(ctx, opts)
+				issuancesDiscoveredMetric.WithLabelValues(
+					opts.Domain,
+				).Add(float64(len(issuances)))
+
 				if err != nil {
 					c.logger.Errorw("getting issuances for domain",
 						"domain", opts.Domain,

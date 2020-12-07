@@ -9,11 +9,30 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/codecentric/certspotter-sd/internal/certspotter"
 	"github.com/codecentric/certspotter-sd/internal/config"
 	"github.com/codecentric/certspotter-sd/internal/discovery/client"
 	"github.com/codecentric/certspotter-sd/internal/discovery/target"
 	"github.com/codecentric/certspotter-sd/internal/version"
+)
+
+var (
+	targetsDiscoveredMetric = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "certspotter_targets_discovered",
+			Help: "The current number of targets from issuances",
+		},
+	)
+	targetsWrittenMetric = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "certspotter_targets_written",
+			Help: "The current number of targets written to file",
+		},
+		[]string{"filename"},
+	)
 )
 
 // Discovery is used for exporting issuances as targets to file.
@@ -90,6 +109,8 @@ func (d *Discovery) export(ctx context.Context) {
 				"targets", len(tgs),
 				"issuances", len(d.issuances),
 			)
+			targetsDiscoveredMetric.Set(float64(len(tgs)))
+
 			for filename, tgs := range GetFileTargets(tgs, d.cfg.FileConfigs) {
 				d.logger.Debugw("writing targets to file",
 					"filename", filename,
@@ -101,6 +122,9 @@ func (d *Discovery) export(ctx context.Context) {
 						"err", err,
 					)
 				}
+				targetsWrittenMetric.WithLabelValues(
+					filename,
+				).Set(float64(len(tgs)))
 			}
 		case <-ctx.Done():
 			return

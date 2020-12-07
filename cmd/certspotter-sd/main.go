@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -19,6 +21,7 @@ import (
 type arguments struct {
 	ConfigFile string
 	LogLevel   *zapcore.Level
+	MetricPort int
 }
 
 func main() {
@@ -37,6 +40,9 @@ func main() {
 		logger.With(zap.String("component", "discovery")),
 		cfg,
 	)
+
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(fmt.Sprintf(":%d", args.MetricPort), nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go sighandler(ctx, func(sig os.Signal) {
@@ -62,6 +68,10 @@ func argsparse() *arguments {
 	flag.BoolVar(&fversion, "version",
 		false,
 		"print certspotter-sd version.",
+	)
+	flag.IntVar(&args.MetricPort, "metric.port",
+		9800,
+		"port to expose metrics to.",
 	)
 	flag.Parse()
 
