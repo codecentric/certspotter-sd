@@ -91,7 +91,7 @@ build-release: fmt lint static | $(GOX) ; $(info $(M) building all executables..
 # Release
 
 .PHONY: release
-release: fmt lint static test build-release changelog ; $(info $(M) creating releases...) @ ## creating release archives
+release: clean fmt lint static test build-release changelog ; $(info $(M) creating releases...) @ ## creating release archives
 	$Q cd $(OUT); for file in ./bin/certspotter-sd.* ; do \
 		rm -rf certspotter-sd ; \
 		mkdir -p certspotter-sd ; \
