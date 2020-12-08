@@ -101,36 +101,40 @@ func (d *Discovery) collect(ctx context.Context, ch <-chan []*certspotter.Issuan
 
 // export writes issuances as targets to files.
 func (d *Discovery) export(ctx context.Context) {
+	write := func() {
+		tgs := GetTargets(d.issuances)
+		d.logger.Debugw("got targets from issuances",
+			"targets", len(tgs),
+			"issuances", len(d.issuances),
+		)
+		targetsDiscoveredMetric.Set(float64(len(tgs)))
+
+		for filename, tgs := range GetFileTargets(tgs, d.cfg.FileConfigs) {
+			d.logger.Debugw("writing targets to file",
+				"filename", filename,
+				"targets", len(tgs),
+			)
+			if err := Write(filename, tgs); err != nil {
+				d.logger.Errorw("writing targets to file",
+					"filename", filename,
+					"err", err,
+				)
+			}
+			targetsWrittenMetric.WithLabelValues(
+				filename,
+			).Set(float64(len(tgs)))
+		}
+	}
+
 	ticker := time.NewTicker(time.Minute * 5)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			d.send <- struct{}{}
+			write()
 		case <-d.send:
-			tgs := GetTargets(d.issuances)
-			d.logger.Debugw("got targets from issuances",
-				"targets", len(tgs),
-				"issuances", len(d.issuances),
-			)
-			targetsDiscoveredMetric.Set(float64(len(tgs)))
-
-			for filename, tgs := range GetFileTargets(tgs, d.cfg.FileConfigs) {
-				d.logger.Debugw("writing targets to file",
-					"filename", filename,
-					"targets", len(tgs),
-				)
-				if err := Write(filename, tgs); err != nil {
-					d.logger.Errorw("writing targets to file",
-						"filename", filename,
-						"err", err,
-					)
-				}
-				targetsWrittenMetric.WithLabelValues(
-					filename,
-				).Set(float64(len(tgs)))
-			}
+			write()
 		case <-ctx.Done():
 			return
 		}
