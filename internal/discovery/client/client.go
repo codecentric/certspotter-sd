@@ -85,7 +85,7 @@ func (c *Client) GetIssuances(ctx context.Context, opts *certspotter.GetIssuance
 		}
 
 		if err != nil {
-			return nil, nil, err
+			return all, resp, err
 		}
 		all = append(all, issuances...)
 
