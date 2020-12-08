@@ -153,5 +153,5 @@ func GetRetryAfter(resp *http.Response) (time.Duration, bool) {
 	if err != nil {
 		return 0, false
 	}
-	return time.Second * time.Duration(after), true
+	return time.Second * time.Duration(after + 1), true
 }
