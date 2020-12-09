@@ -189,7 +189,7 @@ func TestGetRetryAfter(t *testing.T) {
 		&http.Response{Header: map[string][]string{
 			"Retry-After": []string{"3600"},
 		}},
-		time.Second * 3600, true,
+		time.Second * 3601, true,
 	}, "malformed header": {
 		&http.Response{Header: map[string][]string{
 			"Retry-After": []string{"malformed"},
