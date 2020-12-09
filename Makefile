@@ -12,7 +12,7 @@ GO      = go
 TIMEOUT = 15
 LDFLAGS = "-X $(MODULE)/internal/version.Version=$(VERSION) -X $(MODULE)/internal/version.BuildDate=$(DATE)"
 
-PREV_VERSION = $(shell git describe --abbrev=0 --match=v* $(VERSION)^ 2> /dev/null)
+PREV_VERSION = $(shell git describe --abbrev=0 --match=v* --tags $(VERSION)^ 2> /dev/null)
 
 DEBUG = 0
 Q = $(if $(filter 1,$DEBUG),,@)
